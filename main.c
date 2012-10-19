@@ -32,8 +32,13 @@ init_tcp_input(char *ip, int port)
 
 	if (bind(srv, (struct sockaddr *)&sin, sizeof(sin)) < 0) {
 		perror("init_tcp_input:bind()");
+		return -1;
 	}
-	listen(srv, 1);
+
+	if (listen(srv, 1) < 0) {
+		perror("init_tcp_input:listen()");
+		return -1;
+	}
 
 	tmplen = sizeof(tmp);
 	if ((ret = accept(srv, (struct sockaddr *)&tmp, &tmplen)) < 0) {
@@ -47,8 +52,7 @@ init_tcp_input(char *ip, int port)
 int
 init_udp_input(char *ip, int port)
 {
-	struct sockaddr_in	sin, tmp;
-	socklen_t		tmplen = 0;
+	struct sockaddr_in	sin;
 	int			ret = 0;
 
 	if ((ret = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0) {
@@ -62,6 +66,7 @@ init_udp_input(char *ip, int port)
 
 	if (bind(ret, (struct sockaddr *)&sin, sizeof(sin)) < 0) {
 		perror("init_udp_input:bind()");
+		return -1;
 	}
 
 	return ret;
@@ -137,12 +142,16 @@ main(int argc, char *argv[])
 		init_src = init_tcp_input;
 		srcip = "0.0.0.0";
 		srcport = atoi(argv[2]);
+#ifdef _DEBUG_
 		fprintf(stderr, "DEBUG: src tcp port: %d\n", srcport);
+#endif
 	} else if (!strcmp(argv[1], "--src-udp")) {
-		init_src = init_tcp_input;
+		init_src = init_udp_input;
 		srcip = "0.0.0.0";
 		srcport = atoi(argv[2]);
+#ifdef _DEBUG_
 		fprintf(stderr, "DEBUG: src udp port: %d\n", srcport);
+#endif
 	} else {
 		usage(argv[0]);
 		return -1;
@@ -152,13 +161,17 @@ main(int argc, char *argv[])
 		init_dst = init_tcp_output;
 		dstip = argv[4];
 		dstport = atoi(argv[5]);
+#ifdef _DEBUG_
 		fprintf(stderr, "DEBUG: src tcp %s:%d\n", dstip, dstport);
+#endif
 	} else if (!strcmp(argv[3], "--to-udp") && (argc == 7)) {
 		init_dst = init_udp_output;
 		dstip = argv[4];
 		dstport = atoi(argv[5]);
 		maxsize = atoi(argv[6]);
+#ifdef _DEBUG_
 		fprintf(stderr, "DEBUG: src udp %s:%d\n", dstip, dstport);
+#endif
 	} else {
 		usage(argv[0]);
 		return -1;
@@ -176,13 +189,14 @@ main(int argc, char *argv[])
 		return -1;
 
 	while ((bufflen = read(fdin, buffer, maxsize)) > 0) {
+#ifdef _DEBUG_
 		printf("Read %d Bytes, sending via UDP\n", bufflen);
+#endif
 		if (write(fdout, buffer, bufflen) != bufflen) {
-			perror("sendto()");
+			perror("write()");
 			return -1;
 		}		
 	}
-
 	free(buffer);
 	close(fdin);
 	close(fdout);
